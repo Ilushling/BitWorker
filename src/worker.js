@@ -1,5 +1,7 @@
 let workerId = 0;
 let modules = new Map();
+let moduleDirs = new Set(/*['./Systems/Worker']*/);
+self.moduleDirs = moduleDirs;
 
 onmessage = async event => {
     const action = event.data.action;
@@ -11,15 +13,25 @@ onmessage = async event => {
             workerId = event.data.id;
             break;
         case 'initModules':
-            const modules = event.data.modules;
-            for (let i = 0; i < modules.length; i++) {
-                initModule(modules[i]);
+            const modulesToInit = event.data.modules;
+
+            if (moduleDirs) {
+                addModuleDirs(event.data.moduleDirs);
+            }
+            for (let i = modules.length; i--;) {
+                initModule(modulesToInit[i]);
             }
             break;
         case 'execute':
             const moduleName = event.data.moduleName;
-            const module = initModule(moduleName);
-            ({ data, buffers } = await module.execute(data, buffers));
+
+            if (moduleDirs) {
+                addModuleDirs(event.data.moduleDirs);
+            }
+            const Module = initModule(moduleName);
+            if (Module) {
+                ({ data, buffers } = await Module.execute(data, buffers));
+            }
             break;
     }
 
@@ -31,25 +43,38 @@ onmessage = async event => {
     }, buffers);
 };
 
+function addModuleDirs(modulesDirsToInit) {
+    modulesDirsToInit.forEach(moduleDir => moduleDirs.add(moduleDir));
+}
+
 function initModule(moduleName) {
-    let module;
+    let Module;
 
     // For use in module, put class to self context
     self.moduleName = moduleName;
     if (!modules.has(moduleName)) {
-        // const { [moduleName]: module } = await import(`./Systems/${moduleName}.js`);
-
         // Import in workers
-        // After load, script should execute - self[self.moduleName] = [ClassName];
-        importScripts(`./Systems/Worker/${moduleName}.js`);
-        // Get [ClassName] from script
-        module = self[moduleName];
-        module = new module();
+        moduleDirs.forEach(moduleDir => {
+            if (Module) {
+                return;
+            }
+            const modulePath = `${moduleDir}/${moduleName}.js`;
 
-        modules.set(moduleName, module);
+            // const { [moduleName]: Module } = await import(modulePath);
+
+            importScripts(modulePath);
+            // After load, script should execute - self[self.moduleName] = [ClassName];
+
+            // Get [ClassName] from script
+            Module = self[moduleName];
+        });
+
+        Module = new Module();
+
+        modules.set(moduleName, Module);
     } else {
-        module = modules.get(moduleName);
+        Module = modules.get(moduleName);
     }
 
-    return module;
+    return Module;
 }

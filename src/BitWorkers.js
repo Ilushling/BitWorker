@@ -1,6 +1,6 @@
-import { BinaryComponent } from "./Components/BinaryComponent.js";
+import { BinaryComponent } from './Components/BinaryComponent.js';
 
-export class Workers {
+export class BitWorkers {
     constructor(count = 8) {
         this.count = count;
 
@@ -8,28 +8,24 @@ export class Workers {
         this.executedWorkers = new Uint8Array(count);
 
         this.data = {};
-        this.results = [];
         this.buffers = [];
+
+        this.dataParts = [];
         this.buffersParts = [];
     }
 
     async create(path, options) {
-        let count = this.count;
-        if (count < 1) {
+        let i = this.count;
+        if (i < 1) {
             return;
         }
 
-        while (count--) {
+        while (i--) {
             const worker = new Worker(path, options);
-    
-            this.add(worker);
+            this.workers[i] = worker;
         }
 
         await this.initWorkers();
-    }
-
-    add(worker) {
-        this.workers.push(worker);
     }
 
     initWorkers() {
@@ -59,15 +55,18 @@ export class Workers {
             const data = event.data.data;
             const buffers = event.data.buffers;
 
-            this.results[workerId] = data;
+            this.dataParts[workerId] = data;
             this.buffersParts[workerId] = buffers;
 
             this.executedWorkers[workerId] = 0;
 
             if (this.executedWorkers.every(executedWorker => executedWorker === 0)) {
+                // Every worker responded
                 if (action === 'execute') {
+                    // Workers handled module execution
                     this.buffers = this.mergeArrayBuffersParts(this.buffers, this.buffersParts);
-                    return this.resolve({ action, data: this.results, buffers: this.buffers });
+
+                    return this.resolve({ data: this.dataParts, buffers: this.buffers });
                 }
 
                 return this.resolve();
@@ -75,7 +74,7 @@ export class Workers {
         }
     }
 
-    initModules(modules) {
+    initModules(modules, options) {
         return new Promise(resolve => {
             let i = this.count;
             if (i < 1) {
@@ -84,7 +83,11 @@ export class Workers {
 
             while (i--) {
                 const worker = this.workers[i];
-                worker.postMessage({ action: 'initModules', modules });
+                worker.postMessage({
+                    action: 'initModules',
+                    modules,
+                    moduleDirs: options.moduleDirs
+                });
                 this.executedWorkers[i] = 1;
             }
 
@@ -201,6 +204,7 @@ export class Workers {
                 this.workers[workerI].postMessage({
                     action: 'execute',
                     moduleName,
+                    moduleDirs: options.moduleDirs,
                     data: this.data,
                     buffers: buffersPart,
                 }, buffersPart);
@@ -213,7 +217,7 @@ export class Workers {
     }
 
     remove(worker) {
-        worker.terminate();
-        this.count--;
+        // worker.terminate();
+        // this.count--;
     }
 }

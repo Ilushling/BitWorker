@@ -1,4 +1,4 @@
-import { Workers } from '../src/Workers.js';
+import { BitWorkers } from '../src/BitWorkers.js';
 import { BinaryComponent } from '../src/Components/BinaryComponent.js';
 import { Transform2DComponent } from '../src/Components/Transform2DComponent.js';
 
@@ -12,7 +12,7 @@ binaryComponent.data[1] = 2;
 // console.log('binaryComponent', binaryComponent);
 
 
-let transform2DComponentElementsCount = 1000000;
+let transform2DComponentElementsCount = 5000000;
 let transform2DComponentTypeId = Transform2DComponent.typesIds.Uint32Array;
 let transform2DComponentType = Transform2DComponent.types[transform2DComponentTypeId];
 let transform2DArrayBuffer = new ArrayBuffer(transform2DComponentElementsCount * transform2DComponentType.BYTES_PER_ELEMENT);
@@ -48,31 +48,35 @@ let buffers = [
     transform2DComponent.buffer
 ];
 
-const workersCount = 24;
-const workers = new Workers(workersCount);
-window.workers = workers;
-await workers.create('./src/worker.js',/* { type: 'module' }*/ /* now it's useless */);
+const workersCount = 8;
+const bitWorkers = new BitWorkers(workersCount);
+window.bitWorkers = bitWorkers;
+await bitWorkers.create('./src/worker.js',/* { type: 'module' }*/ /* now it's useless */);
 
 console.time(`initModules`);
-await workers.initModules([
+const moduleDirs = [
+    './Systems/Worker'
+];
+await bitWorkers.initModules([
     'Transform2D'
-]);
+], {
+    moduleDirs
+});
 console.timeEnd(`initModules`);
 
-const iterations = 5;
+const iterations = 4;
 for (let i = 0; i < iterations; i++) {
     console.time(`${workersCount} workers ${i + 1}/${iterations} execute`);
-    let response = await workers.execute('Transform2D', { data, buffers });
+    let response = await bitWorkers.execute('Transform2D', { data, buffers, moduleDirs });
     console.timeEnd(`${workersCount} workers ${i + 1}/${iterations} execute`);
 
     binaryComponent.buffer = response.buffers[0];
     transform2DComponent.buffer = response.buffers[1];
 }
 
-console.log(buffers, buffers[0]);
 console.log(
-    '===Result===\n',
-    'good', transform2DComponent.data.length === transform2DComponentElementsCount,
+    '===Result===',
+    '\ngood', transform2DComponent.data.length === transform2DComponentElementsCount,
     // 'binaryComponent', binaryComponent.data,
     '\nTransform2DComponent', transform2DComponent.data,
 );

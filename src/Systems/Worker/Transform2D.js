@@ -26,20 +26,25 @@ class Transform2D {
         // console.log('columns', columns, 'rows', rows, 'count', count);
 
         for (let row = 0; row < rows;) {
-            binaryTransform.data[row] += 1.1; // X
-            binaryTransform.data[row + 1] += 11.99; // Y
+            binaryTransform.data[row] += 1; // X
+            binaryTransform.data[row + 1] += 1; // Y
 
-            // Сложные вычисления для нагрузки
+            // Hard computations...
+            let a = 0;
+            let b = 0;
             for (let i = 0; i < 10; i++) {
-                let a = Math.floor(Math.ceil(Math.cos(Math.random() * 90.1)));
-                let b = Math.floor(Math.ceil(Math.cos(Math.random() * a)));
+                a = Math.abs(Math.ceil(Math.sin(Math.random() * 360) * 10));
+                b = Math.abs(Math.ceil(Math.cos(Math.random() * 360) * 10));
                 if (a + 0.1 < b + 0.2 || b + 0.1 < a + 0.2) {
-                    a += Math.floor(Math.ceil(Math.cos(Math.random() * 90.1)));
+                    a += Math.abs(Math.ceil(Math.sin(Math.random() * 360) * 10));
                 }
                 if (a + 0.1 > b + 0.2 || b + 0.1 > a + 0.2) {
-                    b += Math.floor(Math.ceil(Math.cos(Math.random() * a)));
+                    b += Math.abs(Math.ceil(Math.cos(Math.random() * 360) * 10));
                 }
             }
+
+            binaryTransform.data[row] += a; // X
+            binaryTransform.data[row + 1] += b; // Y
 
             row += columns;
         }
