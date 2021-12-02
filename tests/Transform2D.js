@@ -32,51 +32,51 @@ window.transform2DComponent = transform2DComponent;
 
 
 let data = {
-    buffersMeta: [
-        {
-            typeId: binaryComponent.typeId,
-            columns: BinaryComponent.columns,
-        },
-        {
-            typeId: transform2DComponent.typeId,
-            columns: Transform2DComponent.columns,
-        }
-    ]
+  buffersMeta: [
+    {
+      typeId: binaryComponent.typeId,
+      columns: BinaryComponent.columns,
+    },
+    {
+      typeId: transform2DComponent.typeId,
+      columns: Transform2DComponent.columns,
+    }
+  ]
 };
 let buffers = [
-    binaryComponent.buffer,
-    transform2DComponent.buffer
+  binaryComponent.buffer,
+  transform2DComponent.buffer
 ];
 
 const workersCount = 8;
 const bitWorkers = new BitWorkers(workersCount);
 window.bitWorkers = bitWorkers;
-await bitWorkers.create('./src/worker.js',/* { type: 'module' }*/ /* now it's useless */);
+await bitWorkers.init('./src/worker.js',/* { type: 'module' }*/ /* now it's useless */);
 
 console.time(`initModules`);
 const moduleDirs = [
-    './Systems/Worker'
+  './Systems/Worker'
 ];
 await bitWorkers.initModules([
-    'Transform2D'
+  'Transform2D'
 ], {
-    moduleDirs
+  moduleDirs
 });
 console.timeEnd(`initModules`);
 
 const iterations = 4;
 for (let i = 0; i < iterations; i++) {
-    console.time(`${workersCount} workers ${i + 1}/${iterations} execute`);
-    let response = await bitWorkers.execute('Transform2D', { data, buffers, moduleDirs });
-    console.timeEnd(`${workersCount} workers ${i + 1}/${iterations} execute`);
+  console.time(`${workersCount} workers ${i + 1}/${iterations} execute`);
+  let response = await bitWorkers.execute('Transform2D', { data, buffers, moduleDirs });
+  console.timeEnd(`${workersCount} workers ${i + 1}/${iterations} execute`);
 
-    binaryComponent.buffer = response.buffers[0];
-    transform2DComponent.buffer = response.buffers[1];
+  binaryComponent.buffer = response.buffers[0];
+  transform2DComponent.buffer = response.buffers[1];
 }
 
 console.log(
-    '===Result===',
-    '\ngood', transform2DComponent.data.length === transform2DComponentElementsCount,
-    // 'binaryComponent', binaryComponent.data,
-    '\nTransform2DComponent', transform2DComponent.data,
+  '=== Result ===',
+  '\nsuccess', transform2DComponent.data.length === transform2DComponentElementsCount,
+  // 'binaryComponent', binaryComponent.data,
+  '\n\nTransform2DComponent', transform2DComponent.data,
 );

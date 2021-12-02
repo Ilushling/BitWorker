@@ -1,80 +1,111 @@
-let workerId = 0;
-let modules = new Map();
-let moduleDirs = new Set(/*['./Systems/Worker']*/);
-self.moduleDirs = moduleDirs;
+globalThis.workerId = 0;
+
+globalThis.modules = new Map();
+globalThis.moduleDirs = new Set(/*['./Systems/Worker']*/);
 
 onmessage = async event => {
-    const action = event.data.action;
-    let data = event.data.data;
-    let buffers = event.data.buffers;
+  const action = event.data.action;
+  let data = event.data.data;
+  let buffers = event.data.buffers;
 
-    switch (action) {
-        case 'init':
-            workerId = event.data.id;
-            break;
-        case 'initModules':
-            const modulesToInit = event.data.modules;
+  switch (action) {
+    case 'init':
+      globalThis.workerId = event.data.id;
+      break;
+    case 'initModules':
+      initModules(event.data.modules, event.data.moduleDirs);
+      break;
+    case 'execute':
+      ({ data, buffers } = await execute({ moduleName: event.data.moduleName, data, buffers }));
+      break;
+  }
 
-            if (moduleDirs) {
-                addModuleDirs(event.data.moduleDirs);
-            }
-            for (let i = modules.length; i--;) {
-                initModule(modulesToInit[i]);
-            }
-            break;
-        case 'execute':
-            const moduleName = event.data.moduleName;
+  return postMessage({
+    workerId: globalThis.workerId,
 
-            if (moduleDirs) {
-                addModuleDirs(event.data.moduleDirs);
-            }
-            const Module = initModule(moduleName);
-            if (Module) {
-                ({ data, buffers } = await Module.execute(data, buffers));
-            }
-            break;
-    }
+    action,
 
-    return postMessage({
-        workerId,
-        action,
-        data,
-        buffers
-    }, buffers);
+    data,
+    buffers
+  }, buffers);
 };
 
-function addModuleDirs(modulesDirsToInit) {
-    modulesDirsToInit.forEach(moduleDir => moduleDirs.add(moduleDir));
+/**
+ * @param {Array} modules
+ * @param {Array} moduleDirs
+ */
+function initModules(modules, moduleDirs) {
+  if (Array.isArray(moduleDirs)) {
+    addModuleDirs(moduleDirs);
+  }
+
+  for (const module of modules) {
+    initModule(module);
+  }
 }
 
-function initModule(moduleName) {
-    let Module;
+/**
+ * @param {Array} moduleDirs
+ */
+function addModuleDirs(moduleDirs) {
+  for (const modulesDir of moduleDirs) {
+    globalThis.moduleDirs.add(modulesDir);
+  }
+}
 
-    // For use in module, put class to self context
-    self.moduleName = moduleName;
-    if (!modules.has(moduleName)) {
-        // Import in workers
-        moduleDirs.forEach(moduleDir => {
-            if (Module) {
-                return;
-            }
-            const modulePath = `${moduleDir}/${moduleName}.js`;
+/**
+ * @param {string} moduleName 
+ * @returns {object} Module
+ */
+/*async */function initModule(moduleName) {
+  let Module;
+  let module;
 
-            // const { [moduleName]: Module } = await import(modulePath);
+  if (globalThis.modules.has(moduleName)) {
+    return globalThis.modules.get(moduleName);
+  }
 
-            importScripts(modulePath);
-            // After load, script should execute - self[self.moduleName] = [ClassName];
+  // For use in module, put class to globalThis context
+  globalThis.moduleName = moduleName;
+  for (const moduleDir of globalThis.moduleDirs) {
+    const modulePath = `${moduleDir}/${moduleName}.js`;
 
-            // Get [ClassName] from script
-            Module = self[moduleName];
-        });
+    // const { [moduleName]: Module } = await import(modulePath);
 
-        Module = new Module();
+    globalThis.importScripts(modulePath);
+    // After load, script should execute - globalThis[globalThis.moduleName] = [ClassName];
 
-        modules.set(moduleName, Module);
-    } else {
-        Module = modules.get(moduleName);
+    // Get [ClassName] from script
+    Module = globalThis[moduleName];
+
+    if (Module) {
+      break;
     }
+  }
 
-    return Module;
+  if (Module) {
+    module = new Module();
+
+    globalThis.modules.set(moduleName, module);
+
+    return module;
+  }
+}
+
+/**
+ * @param {object} params 
+ * @param {string} params.moduleName
+ * @param {object} params.data
+ * @param {Array} params.buffers
+ * @returns {object} data
+ * @returns {object} data.data
+ * @returns {Array} data.buffers
+ */
+async function execute({ moduleName, data, buffers }) {
+  const module = initModule(moduleName);
+  if (module) {
+    ({ data, buffers } = await module.execute(data, buffers));
+  }
+
+  return { data, buffers };
 }
