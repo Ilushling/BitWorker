@@ -9,6 +9,8 @@ onmessage = async event => {
 
       globalThis.modules = new Map();
       globalThis.moduleDirs = new Set(/*['./Systems/Worker']*/);
+      
+      globalThis.data = {};
       break;
     case 'initModules':
       initModules(event.data.modules, event.data.moduleDirs);
