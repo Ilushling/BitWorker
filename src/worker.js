@@ -1,8 +1,3 @@
-globalThis.workerId = 0;
-
-globalThis.modules = new Map();
-globalThis.moduleDirs = new Set(/*['./Systems/Worker']*/);
-
 onmessage = async event => {
   const action = event.data.action;
   let data = event.data.data;
@@ -11,6 +6,9 @@ onmessage = async event => {
   switch (action) {
     case 'init':
       globalThis.workerId = event.data.id;
+
+      globalThis.modules = new Map();
+      globalThis.moduleDirs = new Set(/*['./Systems/Worker']*/);
       break;
     case 'initModules':
       initModules(event.data.modules, event.data.moduleDirs);
